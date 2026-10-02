@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException
 from backend.schemas import (
     IncidentAnalyzeRequest, IncidentAnalyzeResponse,
@@ -6,6 +7,8 @@ from backend.schemas import (
     InvestigateRequest, InvestigateResponse
 )
 
+logger = logging.getLogger("forest_intelligence.api")
+
 router = APIRouter(prefix="/api/v1")
 
 @router.post("/incidents/analyze", response_model=IncidentAnalyzeResponse)
@@ -13,6 +16,7 @@ def analyze_incident(request: IncidentAnalyzeRequest):
     """
     Analyzes an incident report text using the NLP module.
     """
+    logger.info("Received incident analysis request")
     from backend.nlp.pipeline import analyze_incident_text
     
     result = analyze_incident_text(request.text)
@@ -30,6 +34,7 @@ def predict_risk_route(request: RiskPredictRequest):
     """
     Predicts forest fire risk based on environmental factors using the ML module.
     """
+    logger.info("Received risk prediction request (temp=%.1f, humidity=%.1f)", request.temperature, request.humidity)
     from backend.ml.predict import predict_risk
     
     score, level = predict_risk(
@@ -50,15 +55,19 @@ def analyze_vision(request: VisionAnalyzeRequest):
     """
     Analyzes an image for fire, smoke, and anomalies using the CV module.
     """
+    logger.info("Received vision analysis request for path: %s", request.image_path)
     from backend.cv.analyzer import analyze_image
 
     try:
         result = analyze_image(request.image_path)
     except FileNotFoundError as e:
+        logger.warning("Vision analysis image not found: %s", request.image_path)
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
+        logger.warning("Vision analysis validation error: %s", str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error("Vision analysis unexpected error: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Image analysis error: {str(e)}")
 
     return VisionAnalyzeResponse(
@@ -73,6 +82,7 @@ def investigate_incident(request: InvestigateRequest):
     """
     Agentic orchestration of NLP, ML, and CV for a comprehensive assessment (Placeholder).
     """
+    logger.info("Received incident investigation request")
     # TODO: Implement real agentic orchestration
     return InvestigateResponse(
         incident=IncidentAnalyzeResponse(
