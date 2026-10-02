@@ -1,0 +1,14 @@
+[
+    {
+        "id": "INC-001",
+        "text": "Huge forest fire near Sector 7G. Spreading fast due to dry leaves and strong wind.",
+        "incident_type": "fire",
+        "severity": "High"
+    },
+    {
+        "id": "INC-002",
+        "text": "Found a poached tiger carcass in Zone 4 this morning.",
+        "incident_type": "illegal_activity",
+        "severity": "Critical"
+    }
+]
