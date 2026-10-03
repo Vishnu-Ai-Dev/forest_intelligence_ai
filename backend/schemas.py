@@ -46,7 +46,7 @@ class InvestigateRequest(BaseModel):
 
 class InvestigateResponse(BaseModel):
     incident: IncidentAnalyzeResponse
-    risk: RiskPredictResponse
+    risk: Optional[RiskPredictResponse] = None
     vision: Optional[VisionAnalyzeResponse] = None
     historical_matches: List[Dict[str, Any]] = Field(default_factory=list, description="List of historical matching reports")
     assessment: str = Field(..., description="Final explainable agent assessment")

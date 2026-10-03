@@ -25,22 +25,36 @@ class HistoricalRetriever:
 
     def retrieve(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """
-        Retrieves top_k similar reports. For this lightweight prototype,
-        we use basic word overlap as a proxy for semantic similarity.
+        Retrieves top_k similar reports based on lexical overlap,
+        accounting for basic negations and requiring a minimum relevance threshold.
         """
         if not self.reports:
             return []
             
-        query_words = set(query.lower().split())
-        scored_reports = []
+        import re
         
+        # 1. Handle basic negations like "no fire" or "no fire or smoke"
+        query_lower = query.lower()
+        query_lower = re.sub(r'\b(?:no|not|without)\s+(\w+)(?:\s+(?:or|and)\s+(\w+))?\b', '', query_lower)
+        
+        query_words = set(re.findall(r'\b\w+\b', query_lower))
+        stopwords = {"a", "an", "the", "in", "on", "at", "to", "for", "is", "are", "was", "were", "and", "or", "of", "with", "due", "by", "no", "not"}
+        query_words = query_words - stopwords
+        
+        if not query_words:
+            return []
+            
+        # 2. Dynamic threshold: at least 2 words must match, unless the query itself is very short
+        threshold = min(2, len(query_words))
+        
+        scored_reports = []
         for report in self.reports:
             report_text = report.get("text", "").lower()
-            report_words = set(report_text.split())
+            report_words = set(re.findall(r'\b\w+\b', report_text))
             
-            # Simple Jaccard-like overlap
             overlap = len(query_words.intersection(report_words))
-            if overlap > 0:
+            
+            if overlap >= threshold:
                 scored_reports.append({"score": overlap, "report": report})
                 
         # Sort by overlap score descending

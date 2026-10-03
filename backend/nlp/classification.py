@@ -19,6 +19,10 @@ SEVERITY_KEYWORDS = {
 def classify_incident_type(text: str) -> str:
     """Classifies the text into a supported incident type."""
     text_lower = text.lower()
+    
+    # Strip basic negated phrases so they don't trigger false positives
+    text_lower = re.sub(r'\b(?:no|not|without)\s+(\w+)(?:\s+(?:or|and)\s+(\w+))?\b', '', text_lower)
+    
     for inc_type, keywords in INCIDENT_KEYWORDS.items():
         if any(kw in text_lower for kw in keywords):
             return inc_type

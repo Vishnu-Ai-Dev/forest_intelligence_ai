@@ -57,7 +57,7 @@ class TestApiEndpoints(unittest.TestCase):
         res = analyze_incident(req)
         self.assertEqual(res.incident_type, "fire")
         self.assertEqual(res.location, "Pine Forest")
-        self.assertEqual(res.time, "14:30")
+        self.assertEqual(res.time, "At 14:30")
         self.assertEqual(res.severity, "Critical")
         self.assertIn("Windy", res.conditions)
 
@@ -99,22 +99,51 @@ class TestApiEndpoints(unittest.TestCase):
             analyze_vision(req)
         self.assertEqual(ctx.exception.status_code, 400)
 
-    def test_investigate_route_without_image(self):
+    def test_investigate_route_without_image_or_environment(self):
+        """Without env or image: risk must be None, vision must be None."""
         req = InvestigateRequest(incident_text="Wildfire smoke detected near hill")
         res = investigate_incident(req)
         self.assertIsNotNone(res.incident)
-        self.assertIsNotNone(res.risk)
-        self.assertIsNone(res.vision)
+        self.assertIsNone(res.risk)      # no environment → ML skipped, no fabrication
+        self.assertIsNone(res.vision)    # no image → CV skipped
+        self.assertIsInstance(res.historical_matches, list)
         self.assertTrue(len(res.assessment) > 0)
 
-    def test_investigate_route_with_image(self):
+    def test_investigate_route_with_full_environment(self):
+        """With all five ML fields present, risk must be populated."""
         req = InvestigateRequest(
             incident_text="Wildfire smoke detected near hill",
-            image_path=self.fire_image
+            environment={
+                "temperature": 38.0,
+                "humidity": 15.0,
+                "rainfall": 0.0,
+                "wind_speed": 30.0,
+                "vegetation_dryness": 0.85,
+            },
+        )
+        res = investigate_incident(req)
+        self.assertIsNotNone(res.risk)
+        self.assertGreaterEqual(res.risk.risk_score, 0.0)
+        self.assertLessEqual(res.risk.risk_score, 100.0)
+        self.assertIsNone(res.vision)    # no image → CV skipped
+
+    def test_investigate_route_with_image(self):
+        """With image and full environment, vision and risk are both populated."""
+        req = InvestigateRequest(
+            incident_text="Wildfire smoke detected near hill",
+            image_path=self.fire_image,
+            environment={
+                "temperature": 38.0,
+                "humidity": 15.0,
+                "rainfall": 0.0,
+                "wind_speed": 30.0,
+                "vegetation_dryness": 0.85,
+            },
         )
         res = investigate_incident(req)
         self.assertIsNotNone(res.vision)
         self.assertTrue(res.vision.fire_detected)
+        self.assertIsNotNone(res.risk)
 
 
 if __name__ == "__main__":

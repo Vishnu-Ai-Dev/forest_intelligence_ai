@@ -160,7 +160,10 @@ def run_smoke_tests():
             "image_path": fire_img,
             "environment": {
                 "temperature": 40.0,
-                "humidity": 15.0
+                "humidity": 15.0,
+                "rainfall": 0.0,
+                "wind_speed": 45.0,
+                "vegetation_dryness": 0.9
             }
         })
         assert status == 200, f"Expected 200, got {status}"
@@ -170,7 +173,7 @@ def run_smoke_tests():
         assert "assessment" in body, f"Expected assessment in body: {body}"
         results.append(("POST /api/v1/investigate", "PASSED", {
             "incident_type": body["incident"]["incident_type"],
-            "risk_score": body["risk"]["risk_score"],
+            "risk_score": body["risk"]["risk_score"] if body.get("risk") else None,
             "vision_fire_detected": body["vision"]["fire_detected"] if body.get("vision") else None,
             "assessment": body["assessment"]
         }))

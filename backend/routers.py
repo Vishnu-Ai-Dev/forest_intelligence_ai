@@ -80,16 +80,63 @@ def analyze_vision(request: VisionAnalyzeRequest):
 @router.post("/investigate", response_model=InvestigateResponse)
 def investigate_incident(request: InvestigateRequest):
     """
-    Agentic orchestration of NLP, ML, and CV for a comprehensive assessment (Placeholder).
+    Agentic orchestration of NLP, ML, CV, and historical retrieval for a
+    comprehensive evidence-based investigation.
+
+    Tool selection is conditional on available inputs:
+      - NLP: always (incident text is mandatory)
+      - Historical retrieval: always
+      - ML: only when all five environmental fields are present
+      - CV: only when image_path is provided
     """
     logger.info("Received incident investigation request")
-    # TODO: Implement real agentic orchestration
-    return InvestigateResponse(
-        incident=IncidentAnalyzeResponse(
-            incident_type="Wildfire", location="Unknown", time="Now", severity="High", conditions=[]
-        ),
-        risk=RiskPredictResponse(risk_score=90.0, risk_level="Critical"),
-        vision=VisionAnalyzeResponse(fire_detected=True, smoke_detected=True, anomaly_detected=False, confidence=0.85) if request.image_path else None,
-        historical_matches=[{"id": 123, "description": "Similar fire in 2023"}],
-        assessment="This is a demo assessment. The system identified high risk and visual confirmation of smoke."
+    from backend.agent.orchestrator import InvestigationOrchestrator
+
+    orchestrator = InvestigationOrchestrator()
+    evidence = orchestrator.investigate(
+        incident_text=request.incident_text,
+        image_path=request.image_path,
+        environment=request.environment,
     )
+
+    # --- Map NLP result to schema ---
+    nlp = evidence.incident
+    incident_response = IncidentAnalyzeResponse(
+        incident_type=nlp.get("incident_type"),
+        location=nlp.get("location"),
+        time=nlp.get("time"),
+        severity=nlp.get("severity"),
+        conditions=nlp.get("conditions", []),
+    )
+
+    # --- Map ML result to schema (None when ML was skipped or failed) ---
+    risk_response = None
+    if evidence.risk is not None:
+        risk_response = RiskPredictResponse(
+            risk_score=evidence.risk["risk_score"],
+            risk_level=evidence.risk["risk_level"],
+        )
+
+    # --- Map CV result to schema (None when CV was skipped or failed) ---
+    vision_response = None
+    if evidence.vision is not None:
+        vision_response = VisionAnalyzeResponse(
+            fire_detected=evidence.vision["fire_detected"],
+            smoke_detected=evidence.vision["smoke_detected"],
+            anomaly_detected=evidence.vision["anomaly_detected"],
+            confidence=evidence.vision["confidence"],
+        )
+
+    # --- Assessment generation (Evidence Fusion) ---
+    from backend.agent.fusion import EvidenceFusion
+    fusion = EvidenceFusion()
+    assessment = fusion.assess(evidence)
+
+    return InvestigateResponse(
+        incident=incident_response,
+        risk=risk_response,
+        vision=vision_response,
+        historical_matches=evidence.historical_matches,
+        assessment=assessment,
+    )
+
